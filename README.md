@@ -148,38 +148,96 @@ classDiagram
         +bool is_client
         +string port_num
         +string address
+        +string in_file
+        +string out_file
         +int timeout
         +uint32_t connection_id
     }
 
     class Utils {
         <<Static>>
+        +getHelp() void
         +calc_checksum(data, length) uint16_t
         +parse_args(argc, argv, config) int
-        +getHelp() void
-    }
-
-    class NetworkNode {
-        <<Abstract>>
-        #int sockfd
-        #Config config
-        #pollfd pfd
-        #net_setup() void
-        +run()* void
     }
 
     class RdtServer {
+        -int sockfd
+        -Config config
+        -pollfd pfd
         -ostream* out_stream
+        -net_setup() void
+        +RdtServer(cfg, out)
+        +~RdtServer()
         +run() void
     }
 
     class RdtClient {
+        -int sockfd
+        -Config config
+        -pollfd pfd
         -istream* in_stream
+        -net_setup() void
         -send_hello(send_pkt, expected_flag) bool
+        +RdtClient(cfg, in)
+        +~RdtClient()
         +run() void
+        +get_fd() int
+        +get_addr_len() socklen_t
     }
 
-    NetworkNode <|-- RdtServer : Dedičnosť (Inheritance)
-    NetworkNode <|-- RdtClient : Dedičnosť (Inheritance)
-    NetworkNode o-- Config : Kompozícia
-```
+    RdtServer o-- Config : Composition
+    RdtClient o-- Config : Composition
+````
+````mermaid
+
+sequenceDiagram
+    participant C as RdtClient
+    participant S as RdtServer
+
+    Note over C,S: 1. Session Establishment (Handshake)
+    C->>S: [HELLO] connection_id = X
+    S-->>C: [HELLO_ACK] connection_id = X
+    
+    Note over C,S: 2. Data Transfer (Go-Back-N)
+    C->>S: [DATA] seq_num = 1
+    C->>S: [DATA] seq_num = 2
+    S-->>C: [DATA_ACK] ack_num = 2
+    
+    Note over C,S: 3. Session Teardown
+    C->>S: [FINAL] connection_id = X
+    S-->>C: [FINAL_ACK] connection_id = X
+    Note over C,S: Connection Closed safely
+````
+## 9. Testovanie
+
+Testovanie bolo rozdelené do dvoch fáz a je plne zautomatizované pomocou príkazu `make test`. Testy prebehli na referenčnom `Nix` prostredí (`x86_64-linux`).
+
+### A) C++ Unit Testy (`tests/test.cpp`)
+* **Ako spustiť:** Vykonajú sa automaticky po zavolaní `make test`.
+* **Čo bolo testované:**
+  1. **CLI Parser:** Testovanie argumentov (napr. chýbajúci port, konflikt `-c` a `-s`, neplatný port `abc`). Očakávaný výstup: Návratový kód `1` (CliError). Skutočný výstup: Úspech, program bezpečne padá.
+  2. **Checksum logic:** Vstupy `AABB` vs `AABBC` a overenie, či generujú správne a odlišné hashe podľa RFC 1071. Test na 0 bytov.
+  3. **Network Mapping:** Testovanie `getaddrinfo` s platnými (`localhost`, `127.0.0.1`, `::1`) aj neplatnými adresami.
+
+### B) Bash Integration Testz (`tests/test.sh`)
+* **Ako spustiť:** Skript sa spúšťa automaticky na konci `make test`.
+* **Prostredie:** Vyžaduje inštaláciu príkazu `tc` (Traffic Control) pre simuláciu chýb.
+* **Testované scenáre a výsledky:**
+  1. **Timeout Test:** Spustenie servera s `-w 2` bez klienta. 
+     * *Očakávanie:* Server skončí po 2s s chybou. *Výsledok:* OK (Exit code != 0).
+  2. **Alien Packet (Multiplexing):** Počas prenosu 5MB súboru sa pripojí druhý klient ("Hacker") s rovnakým portom, ale iným súborom. 
+     * *Očakávanie:* Server odignoruje votrelca a prijme 5MB súbor bez poškodenia vďaka `connection_id`. *Výsledok:* OK (`cmp` nepotvrdil žiadnu korupciu).
+  3. **I/O streamy:** Testovanie prenosu `Stdin -> Súbor`, a `Súbor -> Stdout` pomocou Linux rúry (`|`). *Výsledok:* OK.
+  4. **Corner Cases:** Prenos súboru o veľkosti 0 bytov. *Výsledok:* OK, handshake a teardown prebehli bez pádu.
+  5. **Network Hell:** Pomocou príkazu `sudo tc qdisc add dev lo root netem loss 10% duplicate 10%` bola vytvorená simulácia nekvalitnej siete. 
+     * *Očakávanie:* Súbor musí byť prenesený bit-po-bite presne napriek strate a duplikácii, využitím Go-Back-N retransmisie. *Výsledok:* OK, súbor bol po prenose identický so zdrojovým (`cmp` = 0).
+
+## 10. AI USAGE 
+* **AI:** Použité pre štúdium a implementáciu funkcie `calc_checksum` na zaistenie integrity hlavičky a dát podľa 1071.
+* **Učebné materiály IPK:** Slidy k prednáškam, hlavne (4., 5.) a referenčný repozitár fakulty (dev-envs).
+* **AI Asistencia (Google Gemini):** LLM model bol počas vývoja použitý ako interaktívny konzultant. Špecifické využitie zahŕňalo:
+  * Generovanie formátovania pre Mermaid UML grafy.
+  * Pomoc pri písaní a štruktúrovaní komplexného Bash skriptu a Unit Testov.
+  * Pomoc pri písaní dokumentácie a kontrola pravopisu.  
+  * *Poznámka:* Samotná architektúra protokolu (Go-Back-N, zapuzdrenie, packet parsing) a kód v C++ boli navrhnuté a implementované autorom, pričom AI slúžila len na code-review a prípravu obhajoby.

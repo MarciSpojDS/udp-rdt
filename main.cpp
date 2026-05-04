@@ -13,7 +13,7 @@ void Utils::getHelp() {
     cout << "IPK-RDT: Reliable Data Transfer over UDP\n\n"
          << "Usage:\n"
          << "  Server: ./ipk-rdt -s -p PORT [-a ADDRESS] [-o OUTPUT] [-w TIMEOUT]\n"
-         << "  Client: ./ipk-rdt -c -a HOST -p PORT [-i INPUT] [-w TIMEOUT]\n\n"
+         << "  Client: .//ipk-rdt -c -a HOST -p PORT [-i INPUT] [-w TIMEOUT]\n\n"
          << "Required Modes (Exactly one MUST be specified):\n"
          << "  -s            Start the receiving side of the application (Server).\n"
          << "  -c            Start the sending side of the application (Client).\n\n"
@@ -70,13 +70,17 @@ int Utils::parse_args(int argc, char* argv[], Config& trans_udp) {
                 break;
             case 'c':
                 if (trans_udp.is_server){ return ErrorCodes::CliError;}
-                trans_udp.is_client = true; specified = true; break;
+                trans_udp.is_client = true; 
+                specified = true; 
+                break;
             case 'p':
                 try {    
                     int port = stoi(optarg);
                     if (port < 0 || port > 65535){ return ErrorCodes::CliError;}
                     trans_udp.port_num = to_string(port);
-                } catch(...) { return ErrorCodes::CliError; }
+                } catch(...) { 
+                    return ErrorCodes::CliError; 
+                }
                 break;
             case 'a': 
                 trans_udp.address = optarg; 
@@ -104,7 +108,6 @@ int Utils::parse_args(int argc, char* argv[], Config& trans_udp) {
     if (!specified || trans_udp.port_num.empty()) return ErrorCodes::CliError;
     if (trans_udp.is_client && trans_udp.address.empty()) return ErrorCodes::CliError;
     if (trans_udp.is_client && !trans_udp.out_file.empty()) return ErrorCodes::CliError;
-    
     return 0;
 }
 

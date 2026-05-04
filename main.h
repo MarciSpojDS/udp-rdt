@@ -46,13 +46,12 @@ struct Config {
     std::string address = "";
     std::string in_file = "";
     std::string out_file = "";
-    int timeout = 1;
+    int timeout = 1; 
     uint32_t connection_id = 0;
     struct sockaddr_storage target_addr;
     socklen_t target_addr_len = 0;
 };
 
-/* Utility functions */
 class Utils {
 public:
     static void getHelp();

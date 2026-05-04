@@ -1,0 +1,1 @@
+Ahoj, toto je test prenosu dat cez moj vlastny UDP protokol! Skuska 123.

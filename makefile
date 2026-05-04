@@ -1,16 +1,29 @@
-# Variables
 CXX = g++
 CXXFLAGS = -Wall -Wextra -pedantic -std=c++20 -O2
+
 TARGET = ipk-rdt
 SRC = main.cpp
 
-# Default target when you just type 'make'
+TEST_TARGET = run_tests
+TEST_SRC = tests/test.cpp
+TEST_SCRIPT = tests/integration.sh
+
 all: $(TARGET)
 
-# Rule to build the executable
 $(TARGET): $(SRC)
 	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC)
 
-# Clean target to remove the compiled files (run 'make clean')
+NixDevShellName:
+	@echo "c"
+
+$(TEST_TARGET): $(TEST_SRC) $(SRC)
+	$(CXX) $(CXXFLAGS) -DRUN_TESTS -o $(TEST_TARGET) $(TEST_SRC) $(SRC)
+
+test: all $(TEST_TARGET)
+	@echo " Executing Unit Tests"
+	./$(TEST_TARGET)
+	@echo "Executing Integration Tests"
+	@bash $(TEST_SCRIPT)
+
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGET) $(TEST_TARGET) test_*.bin out_*.bin test_bad.txt
